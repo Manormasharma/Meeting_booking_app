@@ -33,7 +33,7 @@ export default function BookingPage() {
   const [end, setEnd] = useState('');
   const [people, setPeople] = useState(1);
   const [aiInput, setAiInput] = useState('');
-  const [aiMessage, setAiMessage] = useState('');
+  const [aiChat, setAiChat] = useState([]); // [{role: 'user'|'assistant', content: string}]
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loadingAI, setLoadingAI] = useState(false);
@@ -56,20 +56,35 @@ export default function BookingPage() {
   }, []);
 
   const handleAI = async () => {
-    setError(''); setSuccess('');
-    setAiMessage('');
+    setError("");
+    setSuccess("");
     setLoadingAI(true);
+    const userMsg = aiInput.trim();
+    if (!userMsg) return;
+    setAiChat(prev => [...prev, { role: "user", content: userMsg }]);
+    setAiInput("");
     try {
-      const res = await api.post('/ai-bookings', { input: aiInput });
-      const { parsed, suggested_room: suggestedRoom, message } = res.data;
-      setPeople(parsed.people || 1);
-      setStart(toLocalInputValue(parsed.start_time));
-      setEnd(toLocalInputValue(parsed.end_time));
-      setRoom(suggestedRoom?._id || '');
-      setAiMessage(message);
-      setAvailableRooms(res.data.available_rooms || []);
+      const res = await api.post("/ai-bookings", { input: userMsg });
+      const { parsed, booking, room, message, action } = res.data;
+      setAiChat(prev => [...prev, { role: "assistant", content: message }]);
+      // Optionally update booking form if parsed
+      if (parsed) {
+        setPeople(parsed.people || 1);
+        setStart(toLocalInputValue(parsed.start_time));
+        setEnd(toLocalInputValue(parsed.end_time));
+      }
+      if (action === "BOOKED") {
+        setSuccess(message);
+        setRoom(room?._id || "");
+        return;
+      }
+      if (room) {
+        setRoom(room._id);
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'AI could not parse your request.');
+      const msg = err.response?.data?.error || "AI could not process your request.";
+      setAiChat(prev => [...prev, { role: "assistant", content: msg }]);
+      setError(msg);
     } finally {
       setLoadingAI(false);
     }
@@ -199,25 +214,61 @@ export default function BookingPage() {
         </Grid>
         <Grid item xs={12} md={5}>
           <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, border: '1px solid', borderColor: 'divider' }}>
-            <Stack spacing={2}>
+            <Stack spacing={2} sx={{ height: 400, display: 'flex' }}>
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>AI Booking Assistant</Typography>
                 <Typography variant="body2" color="text.secondary">
                   Try: Book a room for 5 people tomorrow at 3 PM for 1 hour
                 </Typography>
               </Box>
-              <TextField
-                label="Describe your booking"
-                value={aiInput}
-                onChange={e => setAiInput(e.target.value)}
-                fullWidth
-                multiline
-                minRows={4}
-              />
-              <Button type="button" onClick={handleAI} variant="outlined" disabled={!aiInput.trim() || loadingAI}>
-                {loadingAI ? 'Checking rooms...' : 'Suggest best room'}
-              </Button>
-              {aiMessage && <Alert severity="info">{aiMessage}</Alert>}
+              <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: 'background.default', p: 1, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                {aiChat.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">Start a conversation with the assistant.</Typography>
+                )}
+                {aiChat.map((msg, idx) => (
+                  <Box key={idx} sx={{
+                    display: 'flex',
+                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    mb: 1
+                  }}>
+                    <Box sx={{
+                      maxWidth: '80%',
+                      px: 2, py: 1,
+                      borderRadius: 2,
+                      bgcolor: msg.role === 'user' ? 'primary.light' : 'grey.100',
+                      color: msg.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                      boxShadow: 1
+                    }}>
+                      <Typography variant="body2">{msg.content}</Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  label="Type your message"
+                  value={aiInput}
+                  onChange={e => setAiInput(e.target.value)}
+                  fullWidth
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!loadingAI && aiInput.trim()) handleAI();
+                    }
+                  }}
+                  multiline
+                  minRows={1}
+                  maxRows={4}
+                  disabled={loadingAI}
+                />
+                <Button
+                  onClick={handleAI}
+                  disabled={!aiInput.trim() || loadingAI}
+                  variant="outlined"
+                >
+                  {loadingAI ? "..." : "Send"}
+                </Button>
+              </Stack>
             </Stack>
           </Paper>
           <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, mt: 3, border: '1px solid', borderColor: 'divider' }}>

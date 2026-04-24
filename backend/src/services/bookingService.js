@@ -117,3 +117,102 @@ export const withRoomLock = async (roomId, work) => {
     }
   }
 };
+
+
+// ADD BELOW YOUR EXISTING CODE (do not remove anything above)
+
+////////////////////////////////////////////////////////////////////////////////
+// 🔒 Check availability using existing conflict logic
+////////////////////////////////////////////////////////////////////////////////
+export const isRoomAvailable = async ({ roomId, start, end }) => {
+  const conflict = await findBookingConflict(roomId, start, end);
+  return !conflict;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// ✅ Create booking (with lock + validation + conflict safety)
+////////////////////////////////////////////////////////////////////////////////
+export const createBooking = async ({
+  roomId,
+  start,
+  end,
+  people,
+  userId,
+}) => {
+  return withRoomLock(roomId, async () => {
+    // 🔍 Double-check conflict inside lock (critical)
+    const conflict = await findBookingConflict(roomId, start, end);
+
+    if (conflict) {
+      throw new Error('ROOM_ALREADY_BOOKED');
+    }
+
+    const booking = await Booking.create({
+      room_id: roomId,
+      user: userId,
+      start_time: start,
+      end_time: end,
+      people,
+      status: 'active',
+    });
+
+    return booking;
+  });
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// 🔁 Try booking with fallback (agent behavior)
+////////////////////////////////////////////////////////////////////////////////
+export const tryBookingWithFallback = async ({
+  rooms,
+  start,
+  end,
+  people,
+  userId,
+}) => {
+  // 1️⃣ Try each room at original time
+  for (const room of rooms) {
+    try {
+      const booking = await createBooking({
+        roomId: room._id,
+        start,
+        end,
+        people,
+        userId,
+      });
+
+      return { booking, room };
+    } catch (err) {
+      if (err.message !== 'ROOM_ALREADY_BOOKED') throw err;
+    }
+  }
+
+  // 2️⃣ Shift time (+30 mins)
+  const shiftedStart = new Date(start.getTime() + 30 * 60000);
+  const shiftedEnd = new Date(end.getTime() + 30 * 60000);
+
+  for (const room of rooms) {
+    try {
+      const booking = await createBooking({
+        roomId: room._id,
+        start: shiftedStart,
+        end: shiftedEnd,
+        people,
+        userId,
+      });
+
+      return {
+        booking,
+        room,
+        shifted: true,
+        shiftedStart,
+        shiftedEnd,
+      };
+    } catch (err) {
+      if (err.message !== 'ROOM_ALREADY_BOOKED') throw err;
+    }
+  }
+
+  // 3️⃣ No success
+  return null;
+};

@@ -1,53 +1,90 @@
-import { findAvailableRooms, normalizeBookingWindow } from '../services/bookingService.js';
+import axios from 'axios';
+import {
+  findAvailableRooms,
+  normalizeBookingWindow,
+  tryBookingWithFallback,
+} from '../services/bookingService.js';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:6000/api/ai-bookings';
+const AI_SERVICE_URL = 'http://ai-service:6000/api/ai-bookings';
 
 export const parseAndSuggestBooking = async (req, res) => {
   try {
     const { input } = req.body;
+
     if (!input || typeof input !== 'string') {
       return res.status(400).json({ error: 'Input is required' });
     }
 
-    const aiResponse = await fetch(AI_SERVICE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input,
-        now: new Date().toISOString(),
-        timezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
-      }),
+    // 🔹 Step 1: AI parsing
+    const aiResponse = await axios.post(AI_SERVICE_URL, {
+      input,
+      now: new Date().toISOString(),
+      timezone: process.env.APP_TIMEZONE || 'Asia/Kolkata',
     });
 
-    if (!aiResponse.ok) {
-      const body = await aiResponse.json().catch(() => ({}));
-      return res.status(502).json({ error: body.error || 'AI service failed' });
-    }
+    const parsed = aiResponse.data;
 
-    const parsed = await aiResponse.json();
     const people = Number(parsed.people);
     if (!Number.isInteger(people) || people < 1) {
-      return res.status(422).json({ error: 'AI response did not include a valid people count', parsed });
+      return res.status(422).json({ error: 'Invalid people count', parsed });
     }
 
-    const { start, end } = normalizeBookingWindow(parsed.start_time, parsed.end_time);
-    const availableRooms = await findAvailableRooms({ people, start, end });
-    const suggestedRoom = availableRooms[0] || null;
+    // 🔹 Step 2: Normalize time
+    const { start, end } = normalizeBookingWindow(
+      parsed.start_time,
+      parsed.end_time
+    );
 
-    res.json({
+    // 🔹 Step 3: Find rooms
+    const availableRooms = await findAvailableRooms({ people, start, end });
+
+    if (!availableRooms.length) {
+      return res.json({
+        success: false,
+        action: "FAILED",
+        message: "❌ No rooms available for that time",
+      });
+    }
+
+    // 🔥 Step 4: TRY BOOKING (THIS WAS MISSING)
+    const result = await tryBookingWithFallback({
+      rooms: availableRooms,
+      start,
+      end,
+      people,
+      userId: req.user?._id,
+    });
+
+    // ❌ Nothing worked
+    if (!result) {
+      return res.json({
+        success: false,
+        action: "FAILED",
+        message: "❌ No rooms available even after retry",
+      });
+    }
+
+    // ✅ SUCCESS
+    return res.json({
+      success: true,
+      action: "BOOKED",
+      booking: result.booking,
+      room: result.room,
       parsed: {
         people,
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        duration_minutes: Math.round((end - start) / 60000),
+        start_time: (result.shiftedStart || start).toISOString(),
+        end_time: (result.shiftedEnd || end).toISOString(),
       },
-      suggested_room: suggestedRoom,
-      available_rooms: availableRooms,
-      message: suggestedRoom
-        ? `Suggested ${suggestedRoom.name}, the smallest available room that fits ${people} people.`
-        : 'No enabled room is available for that time and capacity.',
+      message: result.shifted
+        ? `⚠️ Original slot unavailable. Booked ${result.room.name} at adjusted time.`
+        : `${result.room.name} room booked successfully`,
     });
+
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("❌ AI BOOKING ERROR:", err.message);
+
+    return res.status(500).json({
+      error: err.message,
+    });
   }
 };
