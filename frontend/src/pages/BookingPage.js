@@ -16,6 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { formatTimeRange } from '../utils/dateFormat';
 
 const toLocalInputValue = (dateValue) => {
   if (!dateValue) return '';
@@ -235,7 +236,7 @@ export default function BookingPage() {
                             {booking.room_id?.name || 'Room'}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {new Date(booking.start_time).toLocaleString()} - {new Date(booking.end_time).toLocaleTimeString()}
+                            {formatTimeRange(booking.start_time, booking.end_time)}
                           </Typography>
                         </Box>
                         <Chip

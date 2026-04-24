@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { formatTime, formatTimeRange } from '../utils/dateFormat';
 
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
@@ -28,7 +29,7 @@ export default function Dashboard() {
   const [schedule, setSchedule] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [quickBooking, setQuickBooking] = useState(false);
+  const [quickBookingKey, setQuickBookingKey] = useState('');
 
   const loadDashboard = () => {
     const from = new Date().toISOString();
@@ -70,7 +71,7 @@ export default function Dashboard() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const handleQuickBook = async () => {
+  const handleQuickBook = async (roomId, durationMinutes) => {
     setError('');
     setSuccess('');
     if (!user) {
@@ -78,15 +79,20 @@ export default function Dashboard() {
       return;
     }
 
-    setQuickBooking(true);
+    const actionKey = `${roomId}-${durationMinutes}`;
+    setQuickBookingKey(actionKey);
     try {
-      const res = await api.post('/bookings/quick', { people: 1, duration_minutes: 30 });
-      setSuccess(`Quick booked ${res.data.room_id?.name || 'a room'} for 30 minutes.`);
+      const res = await api.post('/bookings/quick', {
+        room: roomId,
+        people: 1,
+        duration_minutes: durationMinutes,
+      });
+      setSuccess(`Booked ${res.data.room_id?.name || 'room'} for ${durationMinutes} minutes.`);
       await loadDashboard();
     } catch (err) {
       setError(err.response?.data?.error || 'Quick booking failed. Please log in and try again.');
     } finally {
-      setQuickBooking(false);
+      setQuickBookingKey('');
     }
   };
 
@@ -99,9 +105,6 @@ export default function Dashboard() {
             <Typography color="text.secondary">Live room status for the current hour. Refreshes automatically.</Typography>
           </Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-            <Button onClick={handleQuickBook} variant="contained" disabled={quickBooking}>
-              {quickBooking ? 'Booking...' : 'Quick book 30 min'}
-            </Button>
             <Button component={RouterLink} to="/book" variant="outlined">Pick a time</Button>
           </Stack>
         </Stack>
@@ -126,16 +129,43 @@ export default function Dashboard() {
                       color={!room.enabled ? 'default' : available ? 'success' : 'warning'}
                     />
                   </Stack>
+                  {(room.amenities || []).length > 0 && (
+                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                      {room.amenities.map((amenity) => (
+                        <Chip key={amenity} size="small" label={amenity} variant="outlined" />
+                      ))}
+                    </Stack>
+                  )}
                   {room.enabled ? (
                     currentBooking ? (
                       <Box>
                         <Typography variant="body2" color="text.secondary">Current booking</Typography>
                         <Typography variant="body2">
-                          Until {new Date(currentBooking.end_time).toLocaleTimeString()}
+                          Until {formatTime(currentBooking.end_time)}
                         </Typography>
                       </Box>
                     ) : (
-                      <Chip label="Ready for quick booking" color="primary" variant="outlined" sx={{ alignSelf: 'flex-start' }} />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Quick book</Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {[30, 60, 120, 180].map((duration) => {
+                            const actionKey = `${room._id}-${duration}`;
+                            const label = duration === 30 ? '30 min' : `${duration / 60} hr`;
+                            return (
+                              <Button
+                                key={duration}
+                                size="small"
+                                variant={duration === 30 ? 'contained' : 'outlined'}
+                                disabled={quickBookingKey === actionKey}
+                                onClick={() => handleQuickBook(room._id, duration)}
+                                sx={{ minWidth: 72 }}
+                              >
+                                {quickBookingKey === actionKey ? '...' : label}
+                              </Button>
+                            );
+                          })}
+                        </Stack>
+                      </Box>
                     )
                   ) : (
                     <Typography variant="body2" color="text.secondary">Unavailable for new bookings.</Typography>
@@ -170,7 +200,7 @@ export default function Dashboard() {
                 <TableCell>{booking.room?.name || 'Room'}</TableCell>
                 <TableCell>{booking.booked_by}</TableCell>
                 <TableCell>
-                  {new Date(booking.start_time).toLocaleString()} - {new Date(booking.end_time).toLocaleTimeString()}
+                  {formatTimeRange(booking.start_time, booking.end_time)}
                 </TableCell>
                 <TableCell>{booking.duration_minutes} min</TableCell>
                 <TableCell>{booking.people}</TableCell>

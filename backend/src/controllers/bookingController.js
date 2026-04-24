@@ -1,4 +1,5 @@
 import Booking from '../models/Booking.js';
+import Room from '../models/Room.js';
 import {
   findBookingConflict,
   findAvailableRooms,
@@ -153,6 +154,7 @@ export const quickBook = async (req, res) => {
   try {
     const people = Number(req.body.people || 1);
     const durationMinutes = Number(req.body.duration_minutes || 30);
+    const requestedRoomId = req.body.room || req.body.room_id;
 
     if (!Number.isInteger(people) || people < 1) {
       return res.status(400).json({ error: 'People must be a positive integer' });
@@ -163,8 +165,19 @@ export const quickBook = async (req, res) => {
 
     const start = new Date();
     const end = new Date(start.getTime() + durationMinutes * 60000);
-    const rooms = await findAvailableRooms({ people, start, end });
-    const selectedRoom = rooms[0];
+    let selectedRoom = null;
+
+    if (requestedRoomId) {
+      selectedRoom = await Room.findById(requestedRoomId);
+      if (!selectedRoom) return res.status(404).json({ error: 'Room not found' });
+      if (!selectedRoom.enabled) return res.status(400).json({ error: 'Room is disabled' });
+      if (selectedRoom.capacity < people) {
+        return res.status(400).json({ error: 'Room capacity is too small for this booking' });
+      }
+    } else {
+      const rooms = await findAvailableRooms({ people, start, end });
+      selectedRoom = rooms[0];
+    }
 
     if (!selectedRoom) {
       return res.status(409).json({ error: 'No room is currently available for quick booking' });

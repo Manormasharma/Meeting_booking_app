@@ -4,6 +4,10 @@ const RoomSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   capacity: { type: Number, required: true },
   enabled: { type: Boolean, default: true },
+  amenities: {
+    type: [String],
+    default: [],
+  },
 }, { timestamps: true });
 
 export default mongoose.model('Room', RoomSchema);
