@@ -12,8 +12,10 @@ services:
     restart: always
     ports:
       - 5001:5000
-    env_file:
-      - ./backend/.env.example
+    environment:
+      - MONGO_URI=mongodb://host.docker.internal:27017/meeting_booking
+      - JWT_SECRET=your_jwt_secret
+      - PORT=5000
     depends_on:
       - mongo
     volumes:
@@ -33,7 +35,7 @@ services:
     build: ./frontend
     restart: always
     ports:
-      - 7000:7000
+      - 7001:7000
     depends_on:
       - backend
     volumes:
