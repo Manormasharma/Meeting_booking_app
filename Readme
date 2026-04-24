@@ -1,0 +1,119 @@
+You are a senior full-stack engineer and system designer.
+
+Build a production-ready Meeting Room Booking Application with AI-powered features.
+
+Tech Stack:
+
+* Frontend: React.js + Material UI (MUI) + PWA support
+* Backend: Node.js + Express.js
+* Database: MongoDB (with Mongoose)
+* AI Integration:
+
+  * Primary: Ollama (local LLM)
+  * Fallback: ChatGPT API
+
+Core Requirements:
+
+1. The system must support dynamic meeting rooms (start with 3 but scalable to 100+)
+2. Users should be able to:
+
+   * View available rooms
+   * Book time slots
+   * Prevent overlapping bookings (strict conflict handling)
+3. Admin should be able to:
+
+   * Create, update, delete rooms
+   * Enable/disable rooms
+4. AI-based booking:
+
+   * Accept natural language input like:
+     "Book a room for 5 people tomorrow at 3 PM for 1 hour"
+   * Parse input into structured booking data
+   * Suggest best available room based on:
+
+     * capacity
+     * availability
+     * optimal utilization (smallest fitting room)
+
+Architecture:
+
+* Use a modular monorepo structure:
+  /client (React app)
+  /server (Node API)
+  /ai-service (LLM integration)
+* Follow clean architecture and separation of concerns
+
+Backend Requirements:
+
+* Create REST APIs:
+
+  * GET /rooms
+  * POST /rooms
+  * PUT /rooms/:id
+  * DELETE /rooms/:id
+  * POST /bookings
+  * GET /bookings
+  * POST /ai-bookings
+* Implement booking conflict detection:
+  A booking conflicts if:
+  existing.start < new.end AND existing.end > new.start
+* Add MongoDB indexes:
+  { room_id: 1, start_time: 1, end_time: 1 }
+
+Frontend Requirements:
+
+* Build responsive UI using MUI
+* Pages:
+
+  * Dashboard (room list + availability)
+  * Booking page (date/time picker)
+  * Admin panel (room management)
+* Add AI input box for natural language booking
+* Use reusable components and proper state management
+
+AI Service Requirements:
+
+* Create a service to:
+
+  * Call Ollama API locally
+  * Extract structured booking info (people, date, time, duration)
+  * Fallback to ChatGPT API if Ollama fails
+* Ensure response is always valid JSON
+
+Additional Features:
+
+* Role-based access (user/admin)
+* Basic validation and error handling
+* Clean and readable code (no unnecessary complexity)
+
+DevOps:
+
+* Provide Docker setup:
+
+  * MongoDB
+  * Node server
+  * React client
+  * Ollama
+* Include environment configuration (.env)
+
+Output Requirements:
+Generate:
+
+1. Complete folder structure
+2. Backend code (models, routes, controllers)
+3. Frontend code (components, pages, API integration)
+4. AI service implementation
+5. Docker setup (docker-compose.yml)
+6. Sample API requests
+7. Instructions to run the project locally
+
+Code Quality:
+
+* Use modern JavaScript (ES6+)
+* Follow best practices
+* Keep code modular and scalable
+* Avoid hardcoding rooms or data
+
+Important:
+Do not generate placeholder pseudo-code.
+Generate real, working, production-style code.
