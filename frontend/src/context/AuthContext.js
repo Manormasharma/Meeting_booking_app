@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { setAuthToken } from '../services/api';
 
 export const AuthContext = createContext();
 
@@ -7,7 +8,11 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setUser(parsed);
+      setAuthToken(parsed.token);
+    }
   }, []);
 
   const login = (userData) => {
@@ -17,6 +22,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    setAuthToken(null);
     localStorage.removeItem('user');
   };
 

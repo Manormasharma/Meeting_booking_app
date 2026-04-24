@@ -4,9 +4,13 @@ import jwt from 'jsonwebtoken';
 
 export const register = async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password } = req.body;
+    if (!username || !password || password.length < 6) {
+      return res.status(400).json({ error: 'Username and a password of at least 6 characters are required' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, password: hashedPassword, role });
+    const user = new User({ username: username.trim(), password: hashedPassword, role: 'user' });
     await user.save();
     res.status(201).json({ message: 'User registered' });
   } catch (err) {

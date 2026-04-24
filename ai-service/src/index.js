@@ -8,7 +8,12 @@ app.use(express.json());
 
 app.post('/api/ai-bookings', async (req, res) => {
   try {
-    const result = await parseBookingRequest(req.body.input);
+    const { input, now, timezone } = req.body;
+    if (!input || typeof input !== 'string') {
+      return res.status(400).json({ error: 'Input is required' });
+    }
+
+    const result = await parseBookingRequest({ input, now, timezone });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

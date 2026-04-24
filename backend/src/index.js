@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import roomRoutes from './routes/roomRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import aiBookingRoutes from './routes/aiBookingRoutes.js';
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/ai-bookings', aiBookingRoutes);
 app.use('/api/users', userRoutes);
 
 const PORT = process.env.PORT || 5000;
