@@ -7,17 +7,17 @@ services:
       - 27017:27017
     volumes:
       - mongo-data:/data/db
-  server:
-    build: ./server
+  backend:
+    build: ./backend
     restart: always
     ports:
-      - 5000:5000
+      - 5001:5000
     env_file:
-      - ./server/.env.example
+      - ./backend/.env.example
     depends_on:
       - mongo
     volumes:
-      - ./server:/usr/src/app
+      - ./backend:/usr/src/app
   ai-service:
     build: ./ai-service
     restart: always
@@ -26,18 +26,18 @@ services:
     env_file:
       - ./ai-service/.env.example
     depends_on:
-      - server
+      - backend
     volumes:
       - ./ai-service:/usr/src/app
-  client:
-    build: ./client
+  frontend:
+    build: ./frontend
     restart: always
     ports:
-      - 3000:3000
+      - 7000:7000
     depends_on:
-      - server
+      - backend
     volumes:
-      - ./client:/usr/src/app
+      - ./frontend:/usr/src/app
   ollama:
     image: ollama/ollama:latest
     restart: always
