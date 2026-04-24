@@ -5,6 +5,7 @@ import {
   createBooking,
   getAvailability,
   getBookings,
+  getPublicSchedule,
   quickBook,
   releaseBooking,
 } from '../controllers/bookingController.js';
@@ -14,6 +15,7 @@ const router = express.Router();
 
 router.get('/', isUser, getBookings);
 router.get('/availability', getAvailability);
+router.get('/public-schedule', getPublicSchedule);
 router.get('/check-availability', checkBookingAvailability);
 router.post('/', isUser, createBooking);
 router.post('/quick', isUser, quickBook);
