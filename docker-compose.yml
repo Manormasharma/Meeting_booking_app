@@ -1,0 +1,47 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6
+    restart: always
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo-data:/data/db
+  server:
+    build: ./server
+    restart: always
+    ports:
+      - 5000:5000
+    env_file:
+      - ./server/.env.example
+    depends_on:
+      - mongo
+    volumes:
+      - ./server:/usr/src/app
+  ai-service:
+    build: ./ai-service
+    restart: always
+    ports:
+      - 6000:6000
+    env_file:
+      - ./ai-service/.env.example
+    depends_on:
+      - server
+    volumes:
+      - ./ai-service:/usr/src/app
+  client:
+    build: ./client
+    restart: always
+    ports:
+      - 3000:3000
+    depends_on:
+      - server
+    volumes:
+      - ./client:/usr/src/app
+  ollama:
+    image: ollama/ollama:latest
+    restart: always
+    ports:
+      - 11434:11434
+volumes:
+  mongo-data:
